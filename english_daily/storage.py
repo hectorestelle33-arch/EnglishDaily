@@ -6,49 +6,64 @@ from datetime import date
 from pathlib import Path
 
 from .config import DATA_DIR, ensure_dirs
-from .models import AnalyzedArticle
+from .models import AnalyzedArticle, ChinaDeepRead
 
 
-def save_briefing(articles: list[AnalyzedArticle], deep_read: AnalyzedArticle | None) -> Path:
+def save_briefing(
+    articles: list[AnalyzedArticle],
+    deep_read: AnalyzedArticle | None,
+    deep_read_mode: str = "World",
+    china_deep_read: ChinaDeepRead | None = None,
+) -> Path:
     ensure_dirs()
     path = DATA_DIR / f"briefing-{date.today().isoformat()}.json"
     payload = {
         "date": date.today().isoformat(),
         "articles": [asdict(article) for article in articles],
         "deep_read": asdict(deep_read) if deep_read else None,
+        "deep_read_mode": deep_read_mode,
+        "china_deep_read": asdict(china_deep_read) if china_deep_read else None,
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     cleanup_old_briefings(keep=2)
     return path
 
 
-def load_today_briefing() -> tuple[list[AnalyzedArticle], AnalyzedArticle | None] | None:
+def load_today_briefing() -> tuple[list[AnalyzedArticle], AnalyzedArticle | None, str, ChinaDeepRead | None] | None:
     ensure_dirs()
     path = DATA_DIR / f"briefing-{date.today().isoformat()}.json"
     return load_briefing_file(path)
 
 
-def load_latest_briefing() -> tuple[list[AnalyzedArticle], AnalyzedArticle | None] | None:
+def load_latest_briefing() -> tuple[list[AnalyzedArticle], AnalyzedArticle | None, str, ChinaDeepRead | None] | None:
     files = list_saved_briefings()
     if not files:
         return None
     return load_briefing_file(files[0])
 
 
-def load_briefing_file(path: Path) -> tuple[list[AnalyzedArticle], AnalyzedArticle | None] | None:
+def load_briefing_file(path: Path) -> tuple[list[AnalyzedArticle], AnalyzedArticle | None, str, ChinaDeepRead | None] | None:
     if not path.exists():
         return None
     payload = json.loads(path.read_text(encoding="utf-8"))
     articles = [article_from_dict(item) for item in payload.get("articles", [])]
     deep_read_payload = payload.get("deep_read")
     deep_read = article_from_dict(deep_read_payload) if deep_read_payload else None
-    return articles, deep_read
+    china_payload = payload.get("china_deep_read")
+    china_deep_read = china_deep_read_from_dict(china_payload) if china_payload else None
+    return articles, deep_read, str(payload.get("deep_read_mode") or "World"), china_deep_read
 
 
 def article_from_dict(data: dict) -> AnalyzedArticle:
     valid_keys = AnalyzedArticle.__dataclass_fields__.keys()
     cleaned = {key: value for key, value in data.items() if key in valid_keys}
     return AnalyzedArticle(**cleaned)
+
+
+def china_deep_read_from_dict(data: dict) -> ChinaDeepRead:
+    valid_keys = ChinaDeepRead.__dataclass_fields__.keys()
+    cleaned = {key: value for key, value in data.items() if key in valid_keys}
+    return ChinaDeepRead(**cleaned)
 
 
 def list_saved_briefings(keep: int = 2) -> list[Path]:
@@ -72,7 +87,7 @@ def build_feedback_note() -> str:
         loaded = load_briefing_file(path)
         if not loaded:
             continue
-        articles, deep_read = loaded
+        articles, deep_read, _, _ = loaded
         for article in articles + ([deep_read] if deep_read else []):
             recent_articles[article.link] = article
 
@@ -107,12 +122,24 @@ def load_saved_articles() -> list[AnalyzedArticle]:
         loaded = load_briefing_file(path)
         if not loaded:
             continue
-        articles, deep_read = loaded
+        articles, deep_read, _, _ = loaded
         for article in articles + ([deep_read] if deep_read else []):
             if article.link in saved_links:
                 articles_by_link[article.link] = article
 
     return list(articles_by_link.values())
+
+
+def load_recent_articles(keep: int = 2) -> list[AnalyzedArticle]:
+    recent: dict[str, AnalyzedArticle] = {}
+    for path in list_saved_briefings(keep=keep):
+        loaded = load_briefing_file(path)
+        if not loaded:
+            continue
+        articles, deep_read, _, _ = loaded
+        for article in articles + ([deep_read] if deep_read else []):
+            recent[article.link] = article
+    return list(recent.values())
 
 
 def load_user_marks() -> dict[str, dict[str, bool]]:

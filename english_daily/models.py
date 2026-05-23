@@ -44,3 +44,24 @@ class AnalyzedArticle:
     filter_out: bool = False
     deep_read: bool = False
     raw_ai: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ChinaDeepRead:
+    headline: str
+    source_summary: str
+    why_it_matters: str
+    what_happened: str
+    background: str
+    public_impact: str
+    social_or_economic_issue: str
+    critical_angle: str
+    propaganda_risk: str
+    filter_out_reason: str = ""
+    timeline: list[str] = field(default_factory=list)
+    key_actors: list[str] = field(default_factory=list)
+    different_angles: list[str] = field(default_factory=list)
+    uncertainties: list[str] = field(default_factory=list)
+    links: list[dict[str, str]] = field(default_factory=list)
+    run_meta: dict[str, Any] = field(default_factory=dict)
+    raw_ai: dict[str, Any] = field(default_factory=dict)

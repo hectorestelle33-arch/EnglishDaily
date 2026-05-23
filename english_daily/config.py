@@ -16,9 +16,11 @@ EXPORT_DIR = ROOT_DIR / "exports"
 class Settings:
     deepseek_api_key: str
     deepseek_model: str = "deepseek-v4-flash"
+    deepseek_daily_model: str = "deepseek-v4-flash"
+    deepseek_deep_read_model: str = "deepseek-v4-pro"
     deepseek_thinking: str = "disabled"
     guardian_api_key: str = ""
-    max_candidates: int = 32
+    max_candidates: int = 50
     request_timeout: int = 90
 
 
@@ -27,8 +29,11 @@ def load_settings() -> Settings:
     return Settings(
         deepseek_api_key=os.getenv("DEEPSEEK_API_KEY", "").strip(),
         deepseek_model=os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash").strip() or "deepseek-v4-flash",
+        deepseek_daily_model=os.getenv("DEEPSEEK_DAILY_MODEL", "deepseek-v4-flash").strip() or "deepseek-v4-flash",
+        deepseek_deep_read_model=os.getenv("DEEPSEEK_DEEP_READ_MODEL", "deepseek-v4-pro").strip() or "deepseek-v4-pro",
         deepseek_thinking=os.getenv("DEEPSEEK_THINKING", "disabled").strip().lower() or "disabled",
         guardian_api_key=os.getenv("GUARDIAN_API_KEY", "").strip(),
+        max_candidates=int(os.getenv("MAX_CANDIDATES", "50")),
         request_timeout=int(os.getenv("DEEPSEEK_TIMEOUT", "90")),
     )
 
