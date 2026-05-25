@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
 from html import escape
 from typing import Any
 from urllib.parse import quote, unquote
@@ -9,6 +8,7 @@ import streamlit as st
 
 from english_daily.briefing import generate_china_deep_read, generate_daily_articles, generate_world_deep_read
 from english_daily.config import ensure_dirs, load_settings
+from english_daily.dates import app_today_iso
 from english_daily.export import briefing_to_markdown
 from english_daily.models import AnalyzedArticle, ChinaDeepRead
 from english_daily.sources import CATEGORIES, READING_LEVELS
@@ -426,6 +426,18 @@ def saved_count() -> int:
 
 
 def init_state() -> None:
+    today = app_today_iso()
+    if st.session_state.get("active_date") != today:
+        previous_date = st.session_state.get("active_date")
+        st.session_state["active_date"] = today
+        st.session_state["articles"] = []
+        st.session_state["deep_read"] = None
+        st.session_state["china_deep_read"] = None
+        st.session_state["errors"] = []
+        st.session_state["loaded_saved_briefing"] = False
+        if previous_date:
+            st.session_state["status_message"] = f"New day detected: {today}."
+
     st.session_state.setdefault("articles", [])
     st.session_state.setdefault("deep_read", None)
     st.session_state.setdefault("china_deep_read", None)
@@ -512,7 +524,7 @@ def render_category_selector() -> list[str]:
 def render_sidebar(settings: object) -> tuple[str, list[str], str, bool, bool]:
     st.sidebar.markdown("## Daily English World Briefing")
     st.sidebar.markdown('<p class="mini-note">English-first daily reading workspace.</p>', unsafe_allow_html=True)
-    st.sidebar.caption(f"Today: {date.today().isoformat()}")
+    st.sidebar.caption(f"Today: {app_today_iso()} (Asia/Shanghai)")
     st.sidebar.divider()
 
     target_level = st.sidebar.selectbox("Reading target", READING_LEVELS, index=1)
@@ -993,13 +1005,14 @@ def render_export_panel(
 ) -> None:
     st.markdown("## Export")
     st.markdown('<div class="export-panel">', unsafe_allow_html=True)
-    st.markdown(f"**Export date:** {date.today().isoformat()}")
+    st.markdown(f"**Export date:** {app_today_iso()}")
     st.markdown("**Included content**")
     st.markdown("- Daily Top 8")
     st.markdown(f"- Today's Deep Read ({deep_read_mode})")
     st.markdown("- Vocabulary, expressions, sentence patterns")
     st.markdown("- Thinking questions")
     st.markdown("- RSS/API article text when legally provided by the source")
+    st.markdown("- Candidate articles are limited to today, yesterday, and the day before.")
     if china_deep_read:
         st.markdown("- China Deep Read Chinese information brief")
 

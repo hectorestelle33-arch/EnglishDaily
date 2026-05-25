@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict
-from datetime import date
 from pathlib import Path
 
 from .config import DATA_DIR, ensure_dirs
+from .dates import app_today_iso
 from .models import AnalyzedArticle, ChinaDeepRead
 
 
@@ -16,22 +16,23 @@ def save_briefing(
     china_deep_read: ChinaDeepRead | None = None,
 ) -> Path:
     ensure_dirs()
-    path = DATA_DIR / f"briefing-{date.today().isoformat()}.json"
+    today = app_today_iso()
+    path = DATA_DIR / f"briefing-{today}.json"
     payload = {
-        "date": date.today().isoformat(),
+        "date": today,
         "articles": [asdict(article) for article in articles],
         "deep_read": asdict(deep_read) if deep_read else None,
         "deep_read_mode": deep_read_mode,
         "china_deep_read": asdict(china_deep_read) if china_deep_read else None,
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    cleanup_old_briefings(keep=2)
+    cleanup_old_briefings(keep=5)
     return path
 
 
 def load_today_briefing() -> tuple[list[AnalyzedArticle], AnalyzedArticle | None, str, ChinaDeepRead | None] | None:
     ensure_dirs()
-    path = DATA_DIR / f"briefing-{date.today().isoformat()}.json"
+    path = DATA_DIR / f"briefing-{app_today_iso()}.json"
     return load_briefing_file(path)
 
 
@@ -66,13 +67,13 @@ def china_deep_read_from_dict(data: dict) -> ChinaDeepRead:
     return ChinaDeepRead(**cleaned)
 
 
-def list_saved_briefings(keep: int = 2) -> list[Path]:
+def list_saved_briefings(keep: int = 5) -> list[Path]:
     ensure_dirs()
     files = sorted(DATA_DIR.glob("briefing-*.json"), key=lambda item: item.stat().st_mtime, reverse=True)
     return files[:keep]
 
 
-def cleanup_old_briefings(keep: int = 2) -> None:
+def cleanup_old_briefings(keep: int = 5) -> None:
     for path in sorted(DATA_DIR.glob("briefing-*.json"), key=lambda item: item.stat().st_mtime, reverse=True)[keep:]:
         path.unlink(missing_ok=True)
 
@@ -83,7 +84,7 @@ def build_feedback_note() -> str:
         return "No prior difficulty feedback yet."
 
     recent_articles: dict[str, AnalyzedArticle] = {}
-    for path in list_saved_briefings(keep=2):
+    for path in list_saved_briefings(keep=5):
         loaded = load_briefing_file(path)
         if not loaded:
             continue
@@ -118,7 +119,7 @@ def load_saved_articles() -> list[AnalyzedArticle]:
         return []
 
     articles_by_link: dict[str, AnalyzedArticle] = {}
-    for path in list_saved_briefings(keep=2):
+    for path in list_saved_briefings(keep=5):
         loaded = load_briefing_file(path)
         if not loaded:
             continue

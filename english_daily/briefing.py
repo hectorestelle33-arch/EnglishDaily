@@ -23,7 +23,7 @@ FEATURE_CATEGORIES = {"Feature / Long Read", "English Learning"}
 def generate_daily_articles(
     target_level: str, settings: Settings, feedback_note: str = ""
 ) -> tuple[list[AnalyzedArticle], list[str]]:
-    recent_articles = load_recent_articles(keep=2)
+    recent_articles = load_recent_articles(keep=5)
     raw_articles, errors = fetch_candidates(
         timeout=min(settings.request_timeout, 20),
         per_source_limit=10,
@@ -88,7 +88,7 @@ def generate_briefing(
 
 
 def generate_china_deep_read(settings: Settings) -> tuple[ChinaDeepRead | None, list[str]]:
-    recent_articles = load_recent_articles(keep=2)
+    recent_articles = load_recent_articles(keep=5)
     candidates, meta, errors = fetch_china_candidates_with_meta(
         timeout=min(settings.request_timeout, 20),
         per_source_limit=20,

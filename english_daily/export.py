@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from datetime import date
-
+from .dates import app_today_iso
 from .models import AnalyzedArticle
 
 
 def briefing_to_markdown(articles: list[AnalyzedArticle], deep_read: AnalyzedArticle | None, target_level: str) -> str:
     lines = [
-        f"# Daily English World Briefing - {date.today().isoformat()}",
+        f"# Daily English World Briefing - {app_today_iso()}",
         "",
         f"Reading target: **{target_level}**",
         "",

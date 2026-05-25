@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 from html import unescape
 
 import feedparser
 import requests
 
+from .dates import APP_TIMEZONE, app_today
 from .models import RawArticle
 from .sources import CHINA_DEEP_READ_SOURCES, RSS_SOURCES, NewsSource
 
@@ -165,6 +167,7 @@ def fetch_candidates(
 
     recent_articles = recent_articles or []
     candidates = deduplicate_articles(articles)
+    candidates = filter_by_recent_publish_date(candidates, days=3)
     candidates = filter_recent_duplicates(candidates, recent_articles)
     candidates = filter_low_value_candidates(candidates)
     candidates = balance_candidates(candidates, max_candidates=max_candidates)
@@ -188,6 +191,7 @@ def fetch_china_candidates(
 
     recent_articles = recent_articles or []
     candidates = deduplicate_articles(articles)
+    candidates = filter_by_recent_publish_date(candidates, days=3)
     candidates = filter_recent_duplicates(candidates, recent_articles)
     candidates = sorted(candidates, key=china_candidate_score, reverse=True)
     return candidates[:max_candidates], errors
@@ -211,16 +215,19 @@ def fetch_china_candidates_with_meta(
 
     recent_articles = recent_articles or []
     deduped = deduplicate_articles(articles)
-    recent_filtered = filter_recent_duplicates(deduped, recent_articles)
+    date_filtered = filter_by_recent_publish_date(deduped, days=3)
+    recent_filtered = filter_recent_duplicates(date_filtered, recent_articles)
     ranked = sorted(recent_filtered, key=china_candidate_score, reverse=True)
     candidate_pool = ranked[:max_candidates]
     selected_for_ai = candidate_pool[:ai_candidates]
     meta = {
         "raw_fetched_count": len(articles),
         "deduped_count": len(deduped),
+        "date_filtered_count": len(date_filtered),
         "after_recent_dedupe_count": len(recent_filtered),
         "candidate_pool_count": len(candidate_pool),
         "sent_to_ai_count": len(selected_for_ai),
+        "allowed_date_days": 3,
     }
     return selected_for_ai, meta, errors
 
@@ -253,6 +260,32 @@ def filter_recent_duplicates(articles: list[RawArticle], recent_articles: list[R
             continue
         filtered.append(article)
     return filtered
+
+
+def parse_published_date(value: str):
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            parsed = parsedate_to_datetime(value)
+        except (TypeError, ValueError, IndexError, OverflowError):
+            return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=APP_TIMEZONE)
+    return parsed.astimezone(APP_TIMEZONE).date()
+
+
+def recent_allowed_dates(days: int = 3) -> set:
+    today = app_today()
+    return {today - timedelta(days=offset) for offset in range(days)}
+
+
+def filter_by_recent_publish_date(articles: list[RawArticle], days: int = 3) -> list[RawArticle]:
+    allowed = recent_allowed_dates(days)
+    return [article for article in articles if parse_published_date(article.published_time) in allowed]
+
 
 
 def filter_low_value_candidates(articles: list[RawArticle]) -> list[RawArticle]:
