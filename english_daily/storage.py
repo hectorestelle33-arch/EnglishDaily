@@ -5,7 +5,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .config import DATA_DIR, ensure_dirs
-from .dates import app_today_iso
+from .dates import app_today_iso, parse_app_date, recent_allowed_dates
 from .models import AnalyzedArticle, ChinaDeepRead
 
 
@@ -17,6 +17,9 @@ def save_briefing(
 ) -> Path:
     ensure_dirs()
     today = app_today_iso()
+    articles = filter_articles_for_briefing_date(articles, today)
+    if deep_read and not article_matches_briefing_date(deep_read, today):
+        deep_read = None
     path = DATA_DIR / f"briefing-{today}.json"
     payload = {
         "date": today,
@@ -47,12 +50,30 @@ def load_briefing_file(path: Path) -> tuple[list[AnalyzedArticle], AnalyzedArtic
     if not path.exists():
         return None
     payload = json.loads(path.read_text(encoding="utf-8"))
+    briefing_date = str(payload.get("date") or path.stem.replace("briefing-", ""))
     articles = [article_from_dict(item) for item in payload.get("articles", [])]
+    articles = filter_articles_for_briefing_date(articles, briefing_date)
     deep_read_payload = payload.get("deep_read")
     deep_read = article_from_dict(deep_read_payload) if deep_read_payload else None
+    if deep_read and not article_matches_briefing_date(deep_read, briefing_date):
+        deep_read = None
     china_payload = payload.get("china_deep_read")
     china_deep_read = china_deep_read_from_dict(china_payload) if china_payload else None
     return articles, deep_read, str(payload.get("deep_read_mode") or "World"), china_deep_read
+
+
+def article_matches_briefing_date(article: AnalyzedArticle, briefing_date: str, days: int = 3) -> bool:
+    base_date = parse_app_date(briefing_date)
+    published_date = parse_app_date(article.published_time)
+    if not base_date or not published_date:
+        return False
+    return published_date in recent_allowed_dates(base_date=base_date, days=days)
+
+
+def filter_articles_for_briefing_date(
+    articles: list[AnalyzedArticle], briefing_date: str, days: int = 3
+) -> list[AnalyzedArticle]:
+    return [article for article in articles if article_matches_briefing_date(article, briefing_date, days=days)]
 
 
 def article_from_dict(data: dict) -> AnalyzedArticle:

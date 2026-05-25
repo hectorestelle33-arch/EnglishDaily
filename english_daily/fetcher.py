@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from email.utils import parsedate_to_datetime
 from html import unescape
 
 import feedparser
 import requests
 
-from .dates import APP_TIMEZONE, app_today
+from .dates import APP_TIMEZONE, parse_app_date, recent_allowed_dates
 from .models import RawArticle
 from .sources import CHINA_DEEP_READ_SOURCES, RSS_SOURCES, NewsSource
 
@@ -263,27 +263,11 @@ def filter_recent_duplicates(articles: list[RawArticle], recent_articles: list[R
 
 
 def parse_published_date(value: str):
-    if not value:
-        return None
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        try:
-            parsed = parsedate_to_datetime(value)
-        except (TypeError, ValueError, IndexError, OverflowError):
-            return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=APP_TIMEZONE)
-    return parsed.astimezone(APP_TIMEZONE).date()
-
-
-def recent_allowed_dates(days: int = 3) -> set:
-    today = app_today()
-    return {today - timedelta(days=offset) for offset in range(days)}
+    return parse_app_date(value)
 
 
 def filter_by_recent_publish_date(articles: list[RawArticle], days: int = 3) -> list[RawArticle]:
-    allowed = recent_allowed_dates(days)
+    allowed = recent_allowed_dates(days=days)
     return [article for article in articles if parse_published_date(article.published_time) in allowed]
 
 
